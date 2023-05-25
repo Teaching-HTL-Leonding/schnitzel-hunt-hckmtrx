@@ -122,9 +122,12 @@ void PrintCheapMenu((string RestaurantName, string DishName, decimal DishPrice)[
     for (int i = 0; i < feast.Length; i++)
     {
         var course = feast[i];
-        var courseOutput = i == 0 ? "Appetizers" :
-            i == 1 ? "Main Dish" :
-            "Dessert";
+        var courseOutput = i switch
+        {
+            0 => "Appetizers",
+            1 => "Main Dish",
+            _ => "Dessert"
+        };
 
         Console.WriteLine($"{courseOutput}: {course.RestaurantName}, {course.DishName}, {course.DishPrice}{CURRENCY}");
     }
