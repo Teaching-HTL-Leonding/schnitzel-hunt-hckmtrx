@@ -22,7 +22,7 @@ const char CURRENCY = '€';
 #region Methods
 void LoopThroughFiles(string[] files)
 {
-    var dishPrices = new (string, decimal)[files.Length];
+    var dishPrices = new (string RestaurantName, decimal Price)[files.Length];
     var cheapestMenus = new (string RestaurantName, string DishName, decimal DishPrice)[3];
 
     for (int i = 0; i < files.Length; i++)
@@ -38,8 +38,8 @@ void LoopThroughFiles(string[] files)
             Console.WriteLine(restaurantName);
 
 
-            (string DishName, decimal DishPrice)[] cheapDishes = AnalyzeAndPrintDishes(lines, cheapestMenus);
-            
+            var cheapDishes = AnalyzeAndPrintDishes(lines, cheapestMenus);
+
             for (int j = 0; j < cheapDishes.Length; j++)
             {
                 if (cheapDishes[j].DishPrice != 0 && (cheapestMenus[j].DishPrice == 0 || cheapDishes[j].DishPrice < cheapestMenus[j].DishPrice))
@@ -68,32 +68,24 @@ void LoopThroughFiles(string[] files)
     PrintCheapMenu(cheapestMenus);
 }
 
-(string, decimal)[] AnalyzeAndPrintDishes(string[] lines, (string RestaurantName, string DishName, decimal DishPrice)[] cheapMenus)
+(string DishName, decimal DishPrice)[] AnalyzeAndPrintDishes(string[] lines, (string RestaurantName, string DishName, decimal DishPrice)[] cheapMenus)
 {
-    var mainDishesIndex = Array.IndexOf(lines, "MAIN DISHES");
-    var dessertsIndex = Array.IndexOf(lines, "DESSERTS");
-
+    var courseIndex = -1;
     var cheapDishes = new (string, decimal)[3];
 
     for (int i = 0; i < lines.Length; i++)
     {
-        var dish = lines[i];
+        var line = lines[i];
 
-        if (dish.Contains(DISH_TO_FIND))
+        if (line.Length > 0 && line.All(character => char.IsUpper(character) || character == ' ')) { courseIndex++; }
+        else if (line.Contains(DISH_TO_FIND))
         {
-            var dishName = dish.Substring(0, dish.LastIndexOf(PRICE_DELIMITER));
-            var dishPrice = GetPriceOfDish(dish);
+            var dishName = line.Substring(0, line.LastIndexOf(PRICE_DELIMITER));
+            var dishPrice = GetPriceOfDish(line);
 
-            for (int j = 0; j < cheapMenus.Length; j++)
+            if (cheapMenus[courseIndex].DishPrice == 0 || dishPrice < cheapMenus[courseIndex].DishPrice)
             {
-                bool courseExpression = j == 0 ? i < mainDishesIndex :
-                    j == 1 ? i > mainDishesIndex && i < dessertsIndex :
-                    true;
-
-                if (courseExpression && (cheapMenus[j].DishPrice == 0 || dishPrice < cheapMenus[j].DishPrice))
-                {
-                    cheapDishes[j] = (dishName, dishPrice);
-                }
+                cheapDishes[courseIndex] = (dishName, dishPrice);
             }
 
             Console.WriteLine($"\t{dishName}");
@@ -142,8 +134,7 @@ decimal GetPriceOfDish(string dish)
 {
     return decimal.Parse(
         dish[
-            (dish.LastIndexOf(PRICE_DELIMITER) + 2)..
-            dish.LastIndexOf(CURRENCY)
+            (dish.LastIndexOf(PRICE_DELIMITER) + 2)..dish.LastIndexOf(CURRENCY)
         ]
     );
 }
