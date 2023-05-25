@@ -11,6 +11,10 @@ const char CURRENCY = '€';
 #region Main Program
 {
     var files = Directory.GetFiles(MENUCARDS_DIRECTORY);
+
+    Console.WriteLine("WHERE TO GET SCHNITZEL?");
+    Console.WriteLine("=======================\n");
+
     LoopThroughFiles(files);
 }
 #endregion
@@ -18,68 +22,129 @@ const char CURRENCY = '€';
 #region Methods
 void LoopThroughFiles(string[] files)
 {
-    var cheapestDishesOnMenus = new (string RestaurantName, decimal Price)[files.Length];
+    var dishPrices = new (string, decimal)[files.Length];
+    var cheapestMenus = new (string RestaurantName, string DishName, decimal DishPrice)[3];
 
     for (int i = 0; i < files.Length; i++)
     {
         var file = files[i];
+        var restaurantName = Path.GetFileNameWithoutExtension(file);
 
         var lines = File.ReadAllLines(file);
         var text = string.Join('\n', lines);
 
-        var restaurantName = Path.GetFileNameWithoutExtension(file);
-
         if (text.Contains(DISH_TO_FIND))
         {
             Console.WriteLine(restaurantName);
-            PrintDishes(lines);
+
+
+            (string DishName, decimal DishPrice)[] cheapDishes = AnalyzeAndPrintDishes(lines, cheapestMenus);
+            
+            for (int j = 0; j < cheapDishes.Length; j++)
+            {
+                if (cheapDishes[j].DishPrice != 0 && (cheapestMenus[j].DishPrice == 0 || cheapDishes[j].DishPrice < cheapestMenus[j].DishPrice))
+                {
+                    cheapestMenus[j] = (
+                        restaurantName,
+                        cheapDishes[j].DishName,
+                        cheapDishes[j].DishPrice
+                    );
+                }
+            }
         }
 
         if (text.Contains(CHEAPEST_DISH))
         {
-            cheapestDishesOnMenus[i] = (restaurantName, GetPriceOfDish(CHEAPEST_DISH, lines));
+            var cheapestDishIndex = Array.IndexOf(
+                lines,
+                lines.Where(dish => dish.Contains(CHEAPEST_DISH)).First()
+            );
+
+            dishPrices[i] = (restaurantName, GetPriceOfDish(lines[cheapestDishIndex]));
         }
     }
 
-    var orderedDishes = cheapestDishesOnMenus
+    PrintCheapAndExpensiveDish(dishPrices);
+    PrintCheapMenu(cheapestMenus);
+}
+
+(string, decimal)[] AnalyzeAndPrintDishes(string[] lines, (string RestaurantName, string DishName, decimal DishPrice)[] cheapMenus)
+{
+    var mainDishesIndex = Array.IndexOf(lines, "MAIN DISHES");
+    var dessertsIndex = Array.IndexOf(lines, "DESSERTS");
+
+    var cheapDishes = new (string, decimal)[3];
+
+    for (int i = 0; i < lines.Length; i++)
+    {
+        var dish = lines[i];
+
+        if (dish.Contains(DISH_TO_FIND))
+        {
+            var dishName = dish.Substring(0, dish.LastIndexOf(PRICE_DELIMITER));
+            var dishPrice = GetPriceOfDish(dish);
+
+            for (int j = 0; j < cheapMenus.Length; j++)
+            {
+                bool courseExpression = j == 0 ? i < mainDishesIndex :
+                    j == 1 ? i > mainDishesIndex && i < dessertsIndex :
+                    true;
+
+                if (courseExpression && (cheapMenus[j].DishPrice == 0 || dishPrice < cheapMenus[j].DishPrice))
+                {
+                    cheapDishes[j] = (dishName, dishPrice);
+                }
+            }
+
+            Console.WriteLine($"\t{dishName}");
+        }
+    }
+
+    return cheapDishes;
+}
+
+void PrintCheapAndExpensiveDish((string RestaurantName, decimal Price)[] dishPrices)
+{
+    var orderedDishes = dishPrices
         .Where(dish => dish.Price != 0)
         .OrderBy(dish => dish.Price);
 
     var cheapestDish = orderedDishes.First();
     var expensiveDish = orderedDishes.Last();
 
-    Console.WriteLine($"\n{cheapestDish.RestaurantName}, {cheapestDish.Price}{CURRENCY}");
+
+    Console.WriteLine("\n\nWHERE TO GET THE CHEAPEST SEITAN SCHNITZEL?");
+    Console.WriteLine("===========================================\n");
+    Console.WriteLine($"{cheapestDish.RestaurantName}, {cheapestDish.Price}{CURRENCY}");
+
+    Console.WriteLine("\n\nWHERE TO GET THE MOST EXPENSIVE SEITAN SCHNITZEL?");
+    Console.WriteLine("=================================================\n");
     Console.WriteLine($"{expensiveDish.RestaurantName}, {expensiveDish.Price}{CURRENCY}");
 }
 
-void PrintDishes(string[] dishes)
+void PrintCheapMenu((string RestaurantName, string DishName, decimal DishPrice)[] feast)
 {
-    foreach (var dish in dishes)
+    Console.WriteLine("\n\nWHERE TO GET THE CHEAPEST SCHNITZEL FEAST?");
+    Console.WriteLine("==========================================\n");
+
+    for (int i = 0; i < feast.Length; i++)
     {
-        if (dish.Contains(DISH_TO_FIND))
-        {
-            Console.WriteLine($"\t{dish.Substring(0, dish.LastIndexOf(PRICE_DELIMITER))}");
-        }
+        var course = feast[i];
+        var courseOutput = i == 0 ? "Appetizers" :
+            i == 1 ? "Main Dish" :
+            "Dessert";
+
+        Console.WriteLine($"{courseOutput}: {course.RestaurantName}, {course.DishName}, {course.DishPrice}{CURRENCY}");
     }
 }
 
-decimal GetPriceOfDish(string dish, string[] lines)
+decimal GetPriceOfDish(string dish)
 {
-    foreach (var line in lines)
-    {
-        if (line.Contains(dish))
-        {
-            var price = decimal.Parse(
-                line[
-                    (line.LastIndexOf(PRICE_DELIMITER) + 2)..
-                    line.LastIndexOf(CURRENCY)
-                ]
-            );
-
-            return price;
-        }
-    }
-
-    throw new Exception($"dish: {dish} not found");
+    return decimal.Parse(
+        dish[
+            (dish.LastIndexOf(PRICE_DELIMITER) + 2)..
+            dish.LastIndexOf(CURRENCY)
+        ]
+    );
 }
 #endregion
